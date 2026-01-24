@@ -3,6 +3,7 @@ use crate::AppState;
 
 #[tauri::command]
 pub async fn load_file(path: String, state: State<'_, AppState>) -> Result<String, String> {
+    let path = path.trim_matches('"').to_string(); // Remove copy-paste quotes
     println!("Backend: Loading File: {}", path);
     // Request proxy generation (async)
     // Returns original path if proxy not ready, or proxy path if ready/exists
