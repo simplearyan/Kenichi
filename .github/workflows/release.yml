@@ -70,14 +70,19 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Sync node version and setup cache
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install frontend dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
