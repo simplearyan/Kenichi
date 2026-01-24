@@ -24,3 +24,5 @@ dev-docs
 guide
 
 # Unnecessary files
+src-tauri/bin/*
+!src-tauri/bin/.gitkeep
