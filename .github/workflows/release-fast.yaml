@@ -1,0 +1,76 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+            target: "" 
+          - platform: windows-latest
+            args: ""
+            target: ""
+
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- [DEPENDENCIES SETUP (OMITTED FOR BREVITY - KEEP YOUR PREVIOUS LOGIC)] ---
+      # (Ensure ffmpeg-dev-headers are installed here as per previous step)
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # --- THE RUST CACHE (IMPLEMENTATION) ---
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          # This tells the cache to look at the Cargo.toml inside src-tauri
+          workspaces: './src-tauri -> target'
+          # Adds a unique key based on the OS and the rust version
+          key: ${{ matrix.platform }}-${{ matrix.target }}
+
+      # --- [ADDITIONAL WINDOWS VCPKG CACHE] ---
+      # VCPKG is slow on Windows; caching it separately saves another 5 minutes
+      - name: Cache vcpkg
+        if: matrix.platform == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: $VCPKG_INSTALLATION_ROOT/installed
+          key: vcpkg-${{ runner.os }}-ffmpeg
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VCPKG_ROOT: C:\vcpkg
+        with:
+          tagName: v__VERSION__ 
+          releaseName: 'Kenichi v__VERSION__'
+          releaseDraft: true
+          prerelease: true
+          args: ${{ matrix.args }}
