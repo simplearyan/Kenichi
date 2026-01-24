@@ -11,13 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      # --- FIX: Install the missing system libraries ---
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Generate Kinetix Docs
+      # Use the cache to speed up the documentation build
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+      
+      - name: Generate Kenichi Docs
         run: |
           cargo doc --manifest-path src-tauri/Cargo.toml --no-deps --document-private-items
-          echo "<meta http-equiv=\"refresh\" content=\"0; url=kinetix_engine/index.html\">" > target/doc/index.html
+          # Redirect the root to the engine docs
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=kenichi/index.html\">" > target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
