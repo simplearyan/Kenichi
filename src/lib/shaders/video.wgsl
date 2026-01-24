@@ -9,12 +9,14 @@ struct VertexOutput {
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
-    // TODO: Implement full-screen quad vertex shader
+    let uv = vec2<f32>(f32((in_vertex_index << 1u) & 2u), f32(in_vertex_index & 2u));
+    out.position = vec4<f32>(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, 0.0, 1.0);
+    out.uv = uv;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // TODO: Implement fragment shader
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    // Placeholder: UV Gradient to prove it works
+    return vec4<f32>(in.uv.x, in.uv.y, 0.5, 1.0);
 }
