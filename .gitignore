@@ -21,5 +21,6 @@ vite.config.ts.timestamp-*
 # Unnecessary folders
 .vscode
 dev-docs
+guide
 
 # Unnecessary files
