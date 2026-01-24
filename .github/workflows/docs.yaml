@@ -1,0 +1,26 @@
+name: Auto-Docs
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Generate Kinetix Docs
+        run: |
+          cargo doc --manifest-path src-tauri/Cargo.toml --no-deps --document-private-items
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=kinetix_engine/index.html\">" > target/doc/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: target/doc
+          branch: gh-pages

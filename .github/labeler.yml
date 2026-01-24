@@ -1,0 +1,10 @@
+engine:
+  - src-tauri/**/*
+ui:
+  - src/**/*
+ci:
+  - .github/workflows/**/*
+docs:
+  - README.md
+  - CONTRIBUTING.md
+  - docs/**/*
