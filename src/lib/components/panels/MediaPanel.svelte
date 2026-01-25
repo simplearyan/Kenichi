@@ -1,5 +1,6 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
+    import { clips } from "$lib/stores/timeline";
 
     let pathInput = $state("");
     let loading = $state(false);
@@ -9,8 +10,14 @@
         loading = true;
         try {
             console.log("Importing:", pathInput);
-            const proxyPath = await invoke("load_file", { path: pathInput });
+            const proxyPath = (await invoke("load_file", {
+                path: pathInput,
+            })) as string;
             console.log("Loaded/Proxy Path:", proxyPath);
+
+            // Add to Timeline (Default 10s duration for now)
+            clips.addClip(proxyPath, 10.0);
+
             pathInput = "";
         } catch (e) {
             console.error("Import failed:", e);

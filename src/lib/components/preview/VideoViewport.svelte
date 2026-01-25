@@ -16,12 +16,12 @@
 </script>
 
 <div class="flex-1 flex items-center justify-center relative">
-    <div class="w-full h-full bg-#080808 flex items-center justify-center">
-        {#if backendReady}
-            <span class="text-[10px] text-green-500 font-mono animate-pulse"
-                >WGPU_BACKEND_CONNECTED</span
-            >
-        {:else}
+    <div
+        class="w-full h-full flex items-center justify-center {backendReady
+            ? 'bg-transparent'
+            : 'bg-#080808'}"
+    >
+        {#if !backendReady}
             <span class="text-[10px] text-brand-accent/20 font-mono"
                 >INITIALIZING_RENDERER...</span
             >

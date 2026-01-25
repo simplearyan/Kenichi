@@ -2,6 +2,8 @@
     import { invoke } from "@tauri-apps/api/core";
     import { onMount, onDestroy } from "svelte";
 
+    import { clips } from "$lib/stores/timeline";
+
     let currentTime = $state(0.0);
     // let duration = $state(0.0);
     let isPlaying = $state(false);
@@ -51,11 +53,25 @@
 </script>
 
 <div class="flex-1 overflow-hidden relative" onclick={handleSeek}>
-    <!-- Grid -->
+    <!-- Helper Grid -->
     <div
         class="absolute inset-0 bg-white/2 opacity-5 pointer-events-none"
         style="background-image: linear-gradient(90deg, #fff 1px, transparent 1px); background-size: {PIXELS_PER_SECOND}px 100%;"
     ></div>
+
+    <!-- Clips Layer -->
+    <div class="absolute top-10 left-0 h-16 w-full pointer-events-none">
+        {#each $clips as clip}
+            <div
+                class="absolute h-full bg-blue-500/30 border border-blue-500/50 rounded flex items-center justify-center text-xs text-white overflow-hidden whitespace-nowrap"
+                style="left: {clip.start *
+                    PIXELS_PER_SECOND}px; width: {clip.duration *
+                    PIXELS_PER_SECOND}px;"
+            >
+                {clip.path.split(/[/\\]/).pop()}
+            </div>
+        {/each}
+    </div>
 
     <!-- Playhead -->
     <div
