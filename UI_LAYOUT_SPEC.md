@@ -99,68 +99,352 @@ Kenichi supports **3 layout modes** optimized for different workflows:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Top Bar (40px)                                              │
-├──────────┬───────────────────────────┬──────────────────────┤
-│          │                           │                      │
-│  Media   │    Preview (9:16)         │   Properties         │
-│  Library │    Centered, Tall         │   (Wide Panel)       │
-│          │                           │                      │
-│  250px   │      flex-1               │      400px           │
-│          │                           │                      │
-│          │   ┌─────────────┐         │                      │
-│          │   │             │         │   - Text Styling     │
-│          │   │   9:16      │         │   - Animation        │
-│          │   │   Video     │         │   - Filters          │
-│          │   │             │         │                      │
-│          │   │             │         │                      │
-│          │   └─────────────┘         │                      │
-│          │                           │                      │
-├──────────┴───────────────────────────┴──────────────────────┤
-│  Timeline (Short - 150px)                                    │
-│  Mini-timeline for short-form content                        │
-└──────────────────────────────────────────────────────────────┘
+│  Top Bar (40px) - Workspace Toggle | Panel Controls         │
+├──────────────────────────┬──────────────────────────────────┤
+│                          │  ┌────────────┬────────────────┐ │
+│                          │  │   Media    │  Properties    │ │
+│                          │  │  Library   │   (Wide)       │ │
+│   Preview (9:16)         │  │            │                │ │
+│   Full Height            │  │  Toggle    │   Toggle       │ │
+│   Left Panel             │  │  [Hide]    │   [Hide]       │ │
+│                          │  │            │                │ │
+│   ┌────────────┐         │  │  250px     │    400px       │ │
+│   │            │         │  │            │                │ │
+│   │   9:16     │         │  ├────────────┴────────────────┤ │
+│   │   Video    │         │  │                             │ │
+│   │            │         │  │   Timeline (Resizable)      │ │
+│   │            │         │  │   Min: 150px, Max: 400px    │ │
+│   └────────────┘         │  │                             │ │
+│                          │  │   Drag handle to resize ↕   │ │
+│   flex-1                 │  │                             │ │
+│                          │  └─────────────────────────────┘ │
+└──────────────────────────┴──────────────────────────────────┘
+         ↔ Draggable              ↔ Draggable
 ```
 
-### Key Differences from Standard Mode
+### Key Features
 
-1. **Preview Aspect Ratio**: 9:16 (vertical)
-2. **Properties Panel**: Wider (400px) - more room for text controls
-3. **Timeline Height**: Shorter (150px) - videos are typically 15-60s
-4. **Default Zoom**: Higher zoom level for short content
-5. **Safe Zone**: TikTok/Instagram UI overlays
+1. **Left Preview Panel**: Full height 9:16 preview (centered, tall)
+2. **Right Split Layout**:
+   - **Top Half**: Media Library + Properties (side-by-side)
+   - **Bottom Half**: Timeline (full width)
+3. **Toggleable Panels**: Hide Media/Properties for more timeline space
+4. **Draggable Dividers**: Resize all panels horizontally and vertically
+5. **Adaptive Layout**: Panels collapse/expand based on priority
+
+### Panel Specifications
+
+#### Preview Panel (Left)
+- **Width**: Flexible (min: 300px, default: flex-1)
+- **Height**: Full viewport height
+- **Draggable**: Right edge (horizontal resize)
+- **Content**: 9:16 video centered with safe zones
+
+#### Media Library (Right-Top-Left)
+- **Width**: 250px (min: 150px, max: 400px)
+- **Height**: Shares top half with Properties
+- **Toggle**: Hide button to give space to Properties
+- **Draggable**: Right edge (resize vs Properties)
+
+#### Properties Panel (Right-Top-Right)
+- **Width**: 400px (min: 250px, max: 600px)
+- **Height**: Shares top half with Media
+- **Toggle**: Hide button to give space to Timeline
+- **Content**: Text styling, animation, filters
+
+#### Timeline (Right-Bottom)
+- **Width**: Full right panel width
+- **Height**: Flexible (min: 150px, default: 200px, max: 400px)
+- **Draggable**: Top edge (vertical resize vs top panels)
+- **Zoom**: Higher default for short-form content
 
 ### Implementation
 
 ```svelte
-<div class="grid grid-cols-[250px_1fr_400px] h-[calc(100vh-40px)]">
-  <!-- Media Library -->
-  <section class="bg-kenichi-panel border-r border-kenichi-border">
-    <MediaLibrary density="compact" />
-  </section>
+<script>
+  import { writable } from 'svelte/store';
+  import Resizable from '$lib/components/ui/Resizable.svelte';
+  
+  // Panel visibility
+  const showMedia = writable(true);
+  const showProperties = writable(true);
+  
+  // Panel sizes
+  const previewWidth = writable(500);
+  const mediaWidth = writable(250);
+  const propertiesWidth = writable(400);
+  const timelineHeight = writable(200);
+  
+  // Calculate right panel top height
+  $: rightTopHeight = `calc(100% - ${$timelineHeight}px)`;
+</script>
 
-  <!-- Preview (Centered) -->
-  <section class="flex flex-col items-center justify-center bg-black p-4">
-    <div class="aspect-[9/16] h-full max-h-full bg-gray-900 shadow-2xl relative">
-      <WGPUPreview />
-      <SafeZoneOverlay platform="tiktok" />
+<div class="vertical-edit-layout h-[calc(100vh-40px)] flex">
+  <!-- Left: Preview Panel (Draggable) -->
+  <Resizable
+    direction="horizontal"
+    bind:size={$previewWidth}
+    minSize={300}
+    maxSize={800}
+    class="preview-panel"
+  >
+    <section class="h-full flex flex-col items-center justify-center bg-black p-4">
+      <div class="aspect-[9/16] h-full max-h-full bg-gray-900 shadow-2xl relative">
+        <WGPUPreview />
+        <SafeZoneOverlay platform="tiktok" />
+      </div>
+    </section>
+  </Resizable>
+
+  <!-- Right: Split Panel (Media/Properties + Timeline) -->
+  <div class="flex-1 flex flex-col">
+    <!-- Top Half: Media + Properties -->
+    <div class="flex" style="height: {rightTopHeight}">
+      {#if $showMedia}
+        <Resizable
+          direction="horizontal"
+          bind:size={$mediaWidth}
+          minSize={150}
+          maxSize={400}
+          class="media-panel"
+        >
+          <section class="h-full bg-kenichi-panel border-l border-kenichi-border">
+            <div class="panel-header flex justify-between items-center">
+              <span>Media Library</span>
+              <button 
+                class="nle-icon-btn"
+                on:click={() => showMedia.set(false)}
+                title="Hide Media Library"
+              >
+                <i class="i-lucide-panel-left-close" />
+              </button>
+            </div>
+            <MediaLibrary density="compact" />
+          </section>
+        </Resizable>
+      {:else}
+        <!-- Collapsed Media - Show button -->
+        <button 
+          class="collapsed-panel-btn"
+          on:click={() => showMedia.set(true)}
+          title="Show Media Library"
+        >
+          <i class="i-lucide-panel-left-open" />
+        </button>
+      {/if}
+
+      {#if $showProperties}
+        <section class="flex-1 bg-kenichi-panel border-l border-kenichi-border">
+          <div class="panel-header flex justify-between items-center">
+            <span>Properties</span>
+            <button 
+              class="nle-icon-btn"
+              on:click={() => showProperties.set(false)}
+              title="Hide Properties"
+            >
+              <i class="i-lucide-panel-right-close" />
+            </button>
+          </div>
+          <div class="p-4 overflow-y-auto">
+            <Accordion.Root>
+              <TextStyling />
+              <AnimationPresets />
+              <Filters />
+            </Accordion.Root>
+          </div>
+        </section>
+      {:else}
+        <!-- Collapsed Properties - Show button -->
+        <button 
+          class="collapsed-panel-btn"
+          on:click={() => showProperties.set(true)}
+          title="Show Properties"
+        >
+          <i class="i-lucide-panel-right-open" />
+        </button>
+      {/if}
     </div>
-  </section>
 
-  <!-- Properties (Wide) -->
-  <section class="bg-kenichi-panel border-l border-kenichi-border p-4">
-    <Accordion.Root>
-      <TextStyling />
-      <AnimationPresets />
-      <Filters />
-    </Accordion.Root>
-  </section>
+    <!-- Bottom Half: Timeline (Draggable) -->
+    <Resizable
+      direction="vertical"
+      bind:size={$timelineHeight}
+      minSize={150}
+      maxSize={400}
+      class="timeline-panel"
+    >
+      <section class="h-full bg-kenichi-panel border-t border-kenichi-border">
+        <div class="panel-header">Timeline</div>
+        <Timeline mode="portrait" defaultZoom={200} />
+      </section>
+    </Resizable>
+  </div>
 </div>
 
-<!-- Mini Timeline (Fixed Bottom) -->
-<footer class="fixed bottom-0 left-0 right-0 h-150px bg-kenichi-panel/90 backdrop-blur-md border-t border-kenichi-border">
-  <Timeline mode="portrait" defaultZoom={200} />
-</footer>
+<style>
+  .collapsed-panel-btn {
+    width: 32px;
+    background: var(--kenichi-panel);
+    border-left: 1px solid var(--kenichi-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .collapsed-panel-btn:hover {
+    background: var(--kenichi-surface);
+  }
+  
+  .panel-header {
+    padding: 8px 12px;
+    background: var(--kenichi-surface);
+    border-bottom: 1px solid var(--kenichi-border);
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+</style>
 ```
+
+### Draggable Divider Component
+
+```svelte
+<!-- src/lib/components/ui/Resizable.svelte -->
+<script lang="ts">
+  export let direction: 'horizontal' | 'vertical' = 'horizontal';
+  export let size: number = 300;
+  export let minSize: number = 100;
+  export let maxSize: number = 800;
+  
+  let isDragging = false;
+  let startPos = 0;
+  let startSize = 0;
+  
+  function handleMouseDown(e: MouseEvent) {
+    isDragging = true;
+    startPos = direction === 'horizontal' ? e.clientX : e.clientY;
+    startSize = size;
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = direction === 'horizontal' ? 'ew-resize' : 'ns-resize';
+  }
+  
+  function handleMouseMove(e: MouseEvent) {
+    if (!isDragging) return;
+    
+    const currentPos = direction === 'horizontal' ? e.clientX : e.clientY;
+    const delta = currentPos - startPos;
+    const newSize = Math.max(minSize, Math.min(maxSize, startSize + delta));
+    
+    size = newSize;
+  }
+  
+  function handleMouseUp() {
+    isDragging = false;
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'default';
+  }
+</script>
+
+<div class="resizable-container {direction}" style="{direction === 'horizontal' ? 'width' : 'height'}: {size}px">
+  <slot />
+  
+  <div 
+    class="resize-handle {direction}"
+    on:mousedown={handleMouseDown}
+  />
+</div>
+
+<style>
+  .resizable-container {
+    position: relative;
+    flex-shrink: 0;
+  }
+  
+  .resize-handle {
+    position: absolute;
+    background: transparent;
+    z-index: 10;
+  }
+  
+  .resize-handle.horizontal {
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: ew-resize;
+  }
+  
+  .resize-handle.vertical {
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    cursor: ns-resize;
+  }
+  
+  .resize-handle:hover {
+    background: var(--brand-accent);
+  }
+  
+  .resize-handle.horizontal:hover {
+    box-shadow: 0 0 8px rgba(0, 196, 204, 0.5);
+  }
+  
+  .resize-handle.vertical:hover {
+    box-shadow: 0 0 8px rgba(0, 196, 204, 0.5);
+  }
+</style>
+```
+
+### Panel Toggle Shortcuts
+
+```typescript
+// src/lib/stores/panels.ts
+import { writable } from 'svelte/store';
+
+export const panelVisibility = writable({
+  media: true,
+  properties: true,
+  timeline: true
+});
+
+// Keyboard shortcuts
+export function registerPanelShortcuts() {
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === '1') {
+      panelVisibility.update(p => ({ ...p, media: !p.media }));
+    }
+    if (e.ctrlKey && e.key === '2') {
+      panelVisibility.update(p => ({ ...p, properties: !p.properties }));
+    }
+    if (e.ctrlKey && e.key === '3') {
+      panelVisibility.update(p => ({ ...p, timeline: !p.timeline }));
+    }
+  });
+}
+```
+
+### Use Cases
+
+**Scenario 1: Text-Heavy Editing**
+- Hide Media Library (more space for Properties)
+- Expand Properties panel (wider text controls)
+- Minimize Timeline (short clips)
+
+**Scenario 2: Timeline-Focused**
+- Hide both Media + Properties
+- Maximize Timeline height (400px)
+- Full right panel for timeline editing
+
+**Scenario 3: Balanced Workflow**
+- All panels visible
+- Default sizes (250px Media, 400px Properties, 200px Timeline)
+- Quick toggle as needed
 
 ---
 
