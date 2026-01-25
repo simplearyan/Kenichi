@@ -149,6 +149,30 @@ impl KinetixEngine {
         Ok(())
     }
 
+    pub fn update_viewport(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        self.viewport = Some([x, y, width, height]);
+        // Trigger a render to update the view immediately
+        self.render();
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width > 0 && height > 0 {
+            if let Some(config) = &mut self.config {
+                config.width = width;
+                config.height = height;
+                self.width = width;
+                self.height = height;
+                
+                if let Some(surface) = &self.surface {
+                    if let Some(device) = &self.device {
+                         surface.configure(device, config);
+                         println!("WGPU Surface resized to: {}x{}", config.width, config.height);
+                    }
+                }
+            }
+        }
+    }
+
     pub fn render(&mut self) {
         let (Some(surface), Some(device), Some(queue), Some(pipeline)) = (&self.surface, &self.device, &self.queue, &self.render_pipeline) else {
             return;
@@ -195,6 +219,11 @@ impl KinetixEngine {
 
             render_pass.set_pipeline(pipeline);
             
+            // Apply Viewport if set
+            if let Some(vp) = self.viewport {
+                render_pass.set_viewport(vp[0], vp[1], vp[2], vp[3], 0.0, 1.0);
+            }
+
             // Bind Texture if available
             if let Some(bind_group) = &self.texture_bind_group {
                 render_pass.set_bind_group(0, bind_group, &[]);

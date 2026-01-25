@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod engine;
 
+use tauri::Manager; // [NEW] Needed for window.state()
+
 use commands::engine::*;
 use commands::export::*;
 
@@ -45,6 +47,20 @@ pub fn run() {
     });
 
     tauri::Builder::default()
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Resized(size) = event {
+                // Resize WGPU Surface
+                let state = window.state::<AppState>();
+                let engine = state.engine.clone();
+                let width = size.width;
+                let height = size.height;
+                
+                tauri::async_runtime::spawn(async move {
+                    let mut engine_guard = engine.lock().await;
+                    engine_guard.resize(width, height);
+                });
+            }
+        })
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             engine,
@@ -59,7 +75,9 @@ pub fn run() {
             play,
             pause,
             seek,
-            get_playback_state
+            seek,
+            get_playback_state,
+            update_viewport
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

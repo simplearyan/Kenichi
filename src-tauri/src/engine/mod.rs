@@ -28,6 +28,7 @@ pub struct KinetixEngine {
     pub config: Option<wgpu::SurfaceConfiguration>, // Changed to Option for safety
     pub width: u32,
     pub height: u32,
+    pub viewport: Option<[f32; 4]>, // [NEW] x, y, width, height
 }
 
 use serde::Serialize;
@@ -75,6 +76,7 @@ impl KinetixEngine {
             config: None,
             width: 1920,
             height: 1080,
+            viewport: None,
         }
     }
 }

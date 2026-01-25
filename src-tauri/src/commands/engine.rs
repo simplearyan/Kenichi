@@ -48,3 +48,16 @@ pub async fn get_playback_state(state: tauri::State<'_, AppState>) -> Result<cra
     let engine = state.engine.lock().await;
     Ok(engine.playback_state)
 }
+
+#[tauri::command]
+pub async fn update_viewport(
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut engine = state.engine.lock().await;
+    engine.update_viewport(x, y, width, height);
+    Ok(())
+}
