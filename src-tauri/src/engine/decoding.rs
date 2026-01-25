@@ -218,3 +218,50 @@ impl VideoDecoder {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // Helper to get a test file path
+    fn get_test_asset() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/assets/sample_1080p.mp4")
+    }
+
+    #[test]
+    #[ignore = "Requires a video file at 'tests/assets/sample_1080p.mp4'"]
+    fn test_decoder_lifecycle() {
+        let path = get_test_asset();
+        if !path.exists() {
+            eprintln!("Test skipped: No asset found at {:?}", path);
+            return;
+        }
+
+        let mut decoder =
+            VideoDecoder::new(path.to_str().unwrap()).expect("Failed to create decoder");
+
+        // Verify metadata
+        assert!(decoder.width() > 0);
+        assert!(decoder.height() > 0);
+        assert!(decoder.fps > 0.0);
+
+        // Decode first frame
+        let (pixels, timestamp) = decoder
+            .decode_next_frame()
+            .expect("Failed to decode first frame");
+        assert!(!pixels.is_empty());
+        assert_eq!(
+            pixels.len(),
+            (decoder.width() * decoder.height() * 4) as usize
+        );
+        println!("Decoded frame at {}s", timestamp);
+
+        // Test Seek
+        decoder.seek(2.0).expect("Seek failed");
+        let (_, timestamp_after_seek) = decoder
+            .decode_next_frame()
+            .expect("Decode after seek failed");
+        assert!(timestamp_after_seek >= 2.0);
+    }
+}

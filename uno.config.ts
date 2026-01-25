@@ -51,7 +51,7 @@ export default defineConfig({
     presetAttributify(),
     presetIcons({
       scale: 1.2,
-      cdn: 'https://esm.sh/',
+      // cdn: 'https://esm.sh/', // [REMOVED] Use local @iconify-json/lucide
     }),
   ],
   transformers: [
