@@ -124,7 +124,7 @@ impl KinetixEngine {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None, // Disable culling to ensure full-screen triangle is visible
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -198,7 +198,7 @@ impl KinetixEngine {
             // Bind Texture if available
             if let Some(bind_group) = &self.texture_bind_group {
                 render_pass.set_bind_group(0, bind_group, &[]);
-                render_pass.draw(0..6, 0..1); // Draw 6 vertices (2 triangles) for Quad
+                render_pass.draw(0..3, 0..1); // Draw 3 vertices for Full-Screen Triangle
             }
         }
         

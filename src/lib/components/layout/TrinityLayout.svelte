@@ -4,10 +4,25 @@
     import Inspector from "../panels/Inspector.svelte";
     import Timeline from "../panels/Timeline.svelte";
     import { timecode } from "$lib/stores/playback";
+    import { getCurrentWindow } from "@tauri-apps/api/window";
+
+    const appWindow = getCurrentWindow();
+
+    function minimize() {
+        appWindow.minimize();
+    }
+
+    function maximize() {
+        appWindow.toggleMaximize();
+    }
+
+    function close() {
+        appWindow.close();
+    }
 </script>
 
 <div
-    class="h-screen w-screen flex flex-col bg-kenichi-bg overflow-hidden text-ui-text"
+    class="h-screen w-screen flex flex-col bg-transparent overflow-hidden text-ui-text"
 >
     <header
         class="h-40px nle-panel border-b flex items-center px-4 justify-between bg-kenichi-header select-none"
@@ -25,15 +40,22 @@
         </div>
 
         <div class="flex items-center gap-1">
-            <button class="nle-icon-btn" aria-label="Minimize"
+            <button
+                class="nle-icon-btn"
+                aria-label="Minimize"
+                onclick={minimize}
                 ><span class="i-lucide-minus w-14px h-14px"></span></button
             >
-            <button class="nle-icon-btn" aria-label="Maximize"
+            <button
+                class="nle-icon-btn"
+                aria-label="Maximize"
+                onclick={maximize}
                 ><span class="i-lucide-square w-12px h-12px"></span></button
             >
             <button
                 class="nle-icon-btn hover:bg-red-600! hover:text-white"
                 aria-label="Close"
+                onclick={close}
                 ><span class="i-lucide-x w-16px h-16px"></span></button
             >
         </div>
@@ -47,7 +69,9 @@
             <MediaPanel />
         </aside>
 
-        <section class="flex-1 relative bg-black flex flex-col overflow-hidden">
+        <section
+            class="flex-1 relative bg-transparent flex flex-col overflow-hidden"
+        >
             <div
                 class="panel-header bg-black/50 backdrop-blur-sm border-b-transparent absolute top-0 w-full z-10"
             >

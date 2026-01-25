@@ -164,7 +164,7 @@ impl VideoDecoder {
 
         // 2. Roll-Forward to Target
         let mut frames_decoded = 0;
-        let max_skip = 120; // Safety limit
+        let max_skip = 600; // Increased limit for larger GOP sizes (10s @ 60fps)
         let mut decoded_frame = ffmpeg::util::frame::Video::empty();
 
         // We must loop manually because decode_next_frame clones/scales which is slow.

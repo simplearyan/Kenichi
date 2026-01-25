@@ -40,7 +40,7 @@ pub fn run() {
 
             let mut engine_guard = loop_engine.lock().await;
             engine_guard.tick(dt); 
-            // Force render effectively happens inside tick() -> seek() -> update_texture() -> render()
+            engine_guard.render(); // PRESENT the frame to the surface
         }
     });
 
