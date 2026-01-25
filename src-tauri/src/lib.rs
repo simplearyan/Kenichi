@@ -25,6 +25,18 @@ pub fn run() {
     let engine = Arc::new(Mutex::new(KinetixEngine::new()));
     let proxy_manager = ProxyManager::new();
 
+    // Spawn Render Loop (60 FPS)
+    let loop_engine = engine.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(16));
+        loop {
+            interval.tick().await;
+            let mut engine_guard = loop_engine.lock().await;
+            engine_guard.tick(0.016); // Fixed delta for now
+            // Force render effectively happens inside tick() -> seek() -> update_texture() -> render()
+        }
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
@@ -35,7 +47,11 @@ pub fn run() {
             greet,
             attach_wgpu_renderer,
             export_video,
-            commands::library::load_file
+            commands::library::load_file,
+            play,
+            pause,
+            seek,
+            get_playback_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

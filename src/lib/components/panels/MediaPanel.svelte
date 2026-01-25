@@ -19,6 +19,23 @@
         }
     }
 
+    async function togglePlay(play: boolean) {
+        try {
+            if (play) await invoke("play");
+            else await invoke("pause");
+        } catch (e) {
+            console.error("Playback control failed:", e);
+        }
+    }
+
+    async function seekDebug() {
+        try {
+            await invoke("seek", { time: 5.0 });
+        } catch (e) {
+            console.error("Seek failed:", e);
+        }
+    }
+
     function onKeydown(e: KeyboardEvent) {
         if (e.key === "Enter") handleImport();
     }
@@ -48,6 +65,24 @@
             >
                 {loading ? "..." : "Load"}
             </button>
+        </div>
+
+        <div class="flex gap-2 mt-2 border-t border-ui-border pt-2">
+            <button
+                onclick={() => togglePlay(true)}
+                class="px-2 py-1 bg-green-500/20 text-green-500 rounded text-xs hover:bg-green-500/30"
+                >Play</button
+            >
+            <button
+                onclick={() => togglePlay(false)}
+                class="px-2 py-1 bg-red-500/20 text-red-500 rounded text-xs hover:bg-red-500/30"
+                >Pause</button
+            >
+            <button
+                onclick={seekDebug}
+                class="px-2 py-1 bg-blue-500/20 text-blue-500 rounded text-xs hover:bg-blue-500/30"
+                >Seek 5s</button
+            >
         </div>
     </div>
 

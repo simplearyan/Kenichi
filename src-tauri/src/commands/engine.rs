@@ -21,3 +21,30 @@ pub async fn attach_wgpu_renderer<R: Runtime>(
         }
     }
 }
+
+#[tauri::command]
+pub async fn play(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut engine = state.engine.lock().await;
+    engine.play();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pause(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut engine = state.engine.lock().await;
+    engine.pause();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn seek(time: f64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut engine = state.engine.lock().await;
+    engine.seek(time);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_playback_state(state: tauri::State<'_, AppState>) -> Result<crate::engine::PlaybackState, String> {
+    let engine = state.engine.lock().await;
+    Ok(engine.playback_state)
+}

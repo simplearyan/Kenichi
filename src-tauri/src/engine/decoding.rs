@@ -8,6 +8,7 @@ pub struct VideoDecoder {
     decoder: ffmpeg::decoder::Video,
     scaler: Option<ffmpeg::software::scaling::Context>,
     stream_index: usize,
+    time_base: ffmpeg::Rational, // [NEW] To convert PTS to seconds
 }
 
 // SAFETY: VideoDecoder is stored in KinetixEngine, which is wrapped in a Mutex in AppState.
@@ -29,6 +30,7 @@ impl VideoDecoder {
             .ok_or(anyhow::anyhow!("No video stream found"))?;
 
         let stream_index = stream.index();
+        let time_base = stream.time_base();
 
         // Create a decoder for the stream
         let context_decoder =
@@ -41,10 +43,11 @@ impl VideoDecoder {
             decoder,
             scaler: None,
             stream_index,
+            time_base,
         })
     }
 
-    pub fn decode_next_frame(&mut self) -> Result<Vec<u8>> {
+    pub fn decode_next_frame(&mut self) -> Result<(Vec<u8>, f64)> {
         let mut decoded_frame = ffmpeg::util::frame::Video::empty();
 
         // Iterate through packets until we get a full frame
@@ -54,7 +57,22 @@ impl VideoDecoder {
                 // Keep trying to receive frame
                 if self.decoder.receive_frame(&mut decoded_frame).is_ok() {
                     // Frame decoded! Now scale it.
-                    return self.process_frame(&decoded_frame);
+                    let pixels = self.process_frame(&decoded_frame)?;
+
+                    // Calculate Timestamp (seconds)
+                    let pts = decoded_frame.pts().unwrap_or(0);
+                    let seconds = pts as f64 * f64::from(self.time_base);
+
+                    if pts == 0 {
+                        println!(
+                            "Decoder: Warning! Frame PTS is 0. TimeBase: {:?}",
+                            self.time_base
+                        );
+                    } else {
+                        // println!("Decoder: Decoded Frame at {:.3}s (PTS: {})", seconds, pts);
+                    }
+
+                    return Ok((pixels, seconds));
                 }
             }
         }
@@ -62,7 +80,12 @@ impl VideoDecoder {
         // Flush decoder if EOF
         self.decoder.send_eof()?;
         if self.decoder.receive_frame(&mut decoded_frame).is_ok() {
-            return self.process_frame(&decoded_frame);
+            let pixels = self.process_frame(&decoded_frame)?;
+
+            let pts = decoded_frame.pts().unwrap_or(0);
+            let seconds = pts as f64 * f64::from(self.time_base);
+
+            return Ok((pixels, seconds));
         }
 
         Err(anyhow::anyhow!("End of stream or no frame produced"))
@@ -114,5 +137,54 @@ impl VideoDecoder {
 
     pub fn height(&self) -> u32 {
         self.decoder.height()
+    }
+
+    pub fn seek(&mut self, timestamp_seconds: f64) -> Result<()> {
+        let target_ts =
+            (timestamp_seconds * self.time_base.1 as f64 / self.time_base.0 as f64) as i64;
+
+        // println!(
+        //     "Decoder: Seeking to {:.2}s. Stream TimeBase: {:?}. Target Position (Ticks): {}",
+        //     timestamp_seconds, self.time_base, target_ts
+        // );
+
+        // 1. Seek to Keyframe (Backward)
+        match self.context.seek(target_ts, ..target_ts) {
+            Ok(_) => {
+                // println!("Decoder: Keyframe Seek Success")
+            }
+            Err(e) => {
+                eprintln!("Decoder: Keyframe Seek Failed: {}", e);
+                return Err(anyhow::Error::from(e));
+            }
+        }
+
+        self.decoder.flush();
+
+        // 2. Roll-Forward to Target
+        let mut frames_decoded = 0;
+        let max_skip = 120; // Safety limit
+        let mut decoded_frame = ffmpeg::util::frame::Video::empty();
+
+        'seek_loop: for (stream, packet) in self.context.packets() {
+            if stream.index() == self.stream_index {
+                self.decoder.send_packet(&packet)?;
+                while self.decoder.receive_frame(&mut decoded_frame).is_ok() {
+                    let pts = decoded_frame.pts().unwrap_or(0);
+                    if pts >= target_ts {
+                        break 'seek_loop;
+                    }
+
+                    frames_decoded += 1;
+                    if frames_decoded > max_skip {
+                        // println!("Decoder: Seek timeout (max frames skipped)");
+                        break 'seek_loop;
+                    }
+                }
+            }
+        }
+
+        // println!("Decoder: Seek Complete. Skipped {} frames.", frames_decoded);
+        Ok(())
     }
 }
