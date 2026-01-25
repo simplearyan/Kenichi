@@ -22,7 +22,7 @@ pub struct KinetixEngine {
     // State
     pub current_file: Option<String>,
     pub playback_state: PlaybackState, // [NEW] Track playback
-    pub composition: Vec<timeline::ClipData>, // [NEW] Timeline Composition
+    pub timeline_manager: timeline::TimelineManager, // [NEW] Timeline Manager
 
     // Config
     pub config: Option<wgpu::SurfaceConfiguration>, // Changed to Option for safety
@@ -72,7 +72,7 @@ impl KinetixEngine {
             decoder: None,
             current_file: None,
             playback_state: PlaybackState::default(),
-            composition: Vec::new(),
+            timeline_manager: timeline::TimelineManager::new(),
             config: None,
             width: 1920,
             height: 1080,

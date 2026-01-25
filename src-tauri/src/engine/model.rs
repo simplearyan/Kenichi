@@ -167,10 +167,14 @@ impl KinetixEngine {
         &mut self,
         time: f64,
         force_seek: bool,
-    ) -> Option<crate::engine::timeline::ClipData> {
-        let active_clip =
-            crate::engine::timeline::get_active_clip(time, &self.composition).cloned();
-        let clip = active_clip.as_ref()?;
+    ) -> Option<crate::engine::timeline::Clip> {
+        // Get all active clips at this time
+        let active_clips = self.timeline_manager.get_active_clips(time);
+
+        // Pick the top-most visible clip (last one in sorted list)
+        let clip = active_clips.last().copied().cloned();
+
+        let clip = clip?;
 
         // 1. Switch File if needed
         let needs_load = match &self.current_file {
@@ -195,7 +199,7 @@ impl KinetixEngine {
             self.seek_decoder_only(media_time);
         }
 
-        active_clip
+        Some(clip)
     }
 
     fn update_texture(&self, data: &[u8]) {

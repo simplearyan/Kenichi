@@ -4,27 +4,18 @@ import { invoke } from '@tauri-apps/api/core';
 export interface Clip {
     id: string;
     path: string;
-    name: string; // [NEW] Added for display
+    name: string;
     start: number;
     duration: number;
     offset: number;
-    trackId: number; // [NEW] Added for multi-track support
+    trackId: number;
+    zIndex: number; // [NEW] Added to match Backend
 }
 
 export const magneticMode = writable(true);
 
 function createTimelineStore() {
     const { subscribe, set, update } = writable<Clip[]>([]);
-
-    async function syncToBackend(currentClips: Clip[]) {
-        try {
-            console.log("Syncing Composition to Rust:", currentClips);
-            // Transform for backend consistency if needed, currently direct mapping
-            await invoke('update_composition', { newClips: currentClips });
-        } catch (e) {
-            console.error("Failed to sync composition:", e);
-        }
-    }
 
     return {
         subscribe,
@@ -47,11 +38,16 @@ function createTimelineStore() {
                     start: startTime,
                     duration: duration,
                     offset: 0.0,
-                    trackId
+                    trackId,
+                    zIndex: trackId // Default z-index
                 };
 
                 const updated = [...clips, newClip];
-                syncToBackend(updated);
+
+                // Opimization: Use granular command
+                console.log("Timeline: Adding Clip via Command", newClip);
+                invoke('add_clip', { clip: newClip });
+
                 return updated;
             });
         },
@@ -84,7 +80,11 @@ function createTimelineStore() {
                     });
                 }
 
-                syncToBackend(nextClips);
+                // Decision: Since ripple modifies multiple clips, use full sync for safety
+                // Ideally, we would have 'shift_clips' command in backend, but for now Full Sync is safer.
+                console.log("Timeline: Syncing Ripple Delete via Full Update");
+                invoke('update_composition', { newClips: nextClips });
+
                 return nextClips;
             });
         },
@@ -93,9 +93,8 @@ function createTimelineStore() {
          * Clears the timeline.
          */
         clear: () => {
-            const empty: Clip[] = [];
-            set(empty);
-            syncToBackend(empty);
+            set([]);
+            invoke('update_composition', { newClips: [] });
         }
     };
 }

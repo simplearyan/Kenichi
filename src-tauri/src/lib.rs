@@ -72,6 +72,8 @@ pub fn run() {
             export_video,
             commands::library::load_file,
             commands::timeline::update_composition,
+            commands::timeline::add_clip,
+            commands::timeline::remove_clip,
             play,
             pause,
             seek,
