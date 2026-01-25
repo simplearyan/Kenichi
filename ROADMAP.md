@@ -2,14 +2,46 @@
 
 > **Philosophy**: "Engine First, UI Second" - A beautiful UI is useless if the engine can't play 4K video smoothly.
 
-## 🎯 Current Status: Phase 4 (Frame Pacing)
+## 🎯 Current Status: Phase 4 (Frame Pacing) 🚧
 
 We have successfully built a **Hardware-Accelerated Video Player** with:
-- ✅ **Backend (Rust)**: FFmpeg video decoding, memory management, playback loops
-- ✅ **Renderer (WGPU)**: GPU-accelerated frame display
-- ✅ **UI (Svelte)**: Play/Pause/Seek controls with timeline synchronization
-- ✅ **Seeking**: Frame-accurate keyframe + roll-forward seeking
-- 🚧 **Frame Pacing**: Wall-clock synchronized playback (in progress)
+- ✅ WGPU rendering pipeline
+- ✅ FFmpeg decoding (hardware-accelerated path ready)
+- ✅ Frame-accurate seeking with keyframe roll-forward
+- ✅ Timeline sync (Backend ↔ Frontend)
+- 🚧 Frame Pacing (wall-clock sync implemented)
+
+---
+
+## ⚠️ Technical Debt
+
+**Current Debt Ratio**: 16-20% (Acceptable for MVP)
+
+### 🔴 Critical (Must Fix Before Phase 5)
+1. **Timeline Store** - Only 6 lines (stub). Complete code available in `guide/Magnetic Timeline Logic.md`
+2. **Zero Tests** - No unit/integration tests. High regression risk.
+3. **No CI Checks** - No automated linting/type-checking on PRs.
+
+**Remediation Time**: 1 day  
+**Impact**: Unblocks Phase 5, prevents 10+ days of rework
+
+### 🟡 Moderate (Fix During Phase 5-6)
+1. **Fixed Delta Time** - Render loop uses hardcoded 16ms (causes audio desync)
+2. **println! Logging** - 50+ instances, should use `tracing` crate
+3. **Unsafe Send** - Needs better documentation of safety invariants
+
+**Remediation Time**: 2.5 days  
+**Impact**: Reduces bugs, improves debugging
+
+### 🟢 Low Priority (Phase 7+)
+1. **Magic Numbers** - Hardcoded values need constants
+2. **No API Docs** - Missing rustdoc/TSDoc
+
+**Remediation Time**: 7 hours
+
+**Full Analysis**: See `technical_debt_analysis.md` for detailed breakdown and cost-benefit analysis.
+
+**Recommendation**: Address critical debt (1 day) before starting Phase 5.
 
 ---
 
