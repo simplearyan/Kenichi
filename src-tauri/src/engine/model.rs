@@ -1,5 +1,28 @@
 use super::KinetixEngine;
 
+// Ensure bytemuck is derived
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct TransformUniform {
+    pub position: [f32; 2], // X, Y
+    pub scale: f32,
+    pub rotation: f32,
+    pub opacity: f32,
+    pub _padding: [f32; 3], // Necessary for 16-byte alignment in WGSL
+}
+
+impl Default for TransformUniform {
+    fn default() -> Self {
+        Self {
+            position: [0.0, 0.0],
+            scale: 1.0,
+            rotation: 0.0,
+            opacity: 1.0,
+            _padding: [0.0; 3],
+        }
+    }
+}
+
 impl KinetixEngine {
     pub fn load_video(&mut self, path: &str) {
         println!("Engine: Loading Video: {}", path);
@@ -112,27 +135,67 @@ impl KinetixEngine {
 
     pub fn play(&mut self) {
         self.playback_state.is_playing = true;
+        self.playback_state.last_frame_time = Some(std::time::Instant::now());
     }
 
     pub fn pause(&mut self) {
         self.playback_state.is_playing = false;
+        self.playback_state.last_frame_time = None;
     }
 
     pub fn seek(&mut self, time: f64) {
         self.playback_state.current_time = time;
+        self.playback_state.last_frame_time = Some(std::time::Instant::now());
+        self.sync_video_to_time(time, true); // true = Force Seek
+    }
 
+    // Helper: Internal seek that doesn't mess with Global Timeline Time
+    fn seek_decoder_only(&mut self, time: f64) {
         if let Some(decoder) = &mut self.decoder {
             if let Err(e) = decoder.seek(time) {
                 eprintln!("Engine Seek Error: {}", e);
                 return;
             }
-
-            // Decode fresh frame at new timestamp
-            if let Ok((frame_data, pts)) = decoder.decode_next_frame() {
+            if let Ok((frame_data, _)) = decoder.decode_next_frame() {
                 self.update_texture(&frame_data);
-                self.playback_state.current_time = pts;
             }
         }
+    }
+
+    // Phase 5b: Sync Engine to Timeline
+    fn sync_video_to_time(
+        &mut self,
+        time: f64,
+        force_seek: bool,
+    ) -> Option<crate::engine::timeline::ClipData> {
+        let active_clip =
+            crate::engine::timeline::get_active_clip(time, &self.composition).cloned();
+        let clip = active_clip.as_ref()?;
+
+        // 1. Switch File if needed
+        let needs_load = match &self.current_file {
+            Some(path) => *path != clip.path,
+            None => true,
+        };
+
+        if needs_load {
+            println!("Engine: Switching Clip -> {}", clip.path);
+            self.load_video(&clip.path);
+            // load_video renders frame 0. We might be at offset 50.
+            // So we definitely need to seek if offset > 0.
+        }
+
+        // 2. Calculate Media Time
+        let media_time = (time - clip.start) + clip.offset;
+
+        // 3. Seek if needed
+        // If we just loaded (needs_load), we probably need to seek unless media_time is near 0.
+        // If force_seek (User scrub), we always seek.
+        if force_seek || (needs_load && media_time > 0.1) {
+            self.seek_decoder_only(media_time);
+        }
+
+        active_clip
     }
 
     fn update_texture(&self, data: &[u8]) {
@@ -175,20 +238,38 @@ impl KinetixEngine {
             return;
         }
 
+        // 1. Advance Playhead
         self.playback_state.current_time += dt;
+        let current_time = self.playback_state.current_time;
 
-        if let Some(decoder) = &mut self.decoder {
+        // 2. Sync to Timeline (Switch clips if needed)
+        // We pass force_seek = false because we want smooth playback, not jump cuts
+        let active_clip = self.sync_video_to_time(current_time, false);
+
+        if active_clip.is_none() {
+            return;
+        }
+
+        // 3. Decode Next Frame (Pacing)
+        let Some(decoder) = &mut self.decoder else {
+            return;
+        };
+
+        let now = std::time::Instant::now();
+        let last_time = self.playback_state.last_frame_time.unwrap_or(now);
+        let elapsed = now.duration_since(last_time).as_secs_f64();
+
+        let fps = decoder.fps;
+        let frame_duration = if fps > 0.0 { 1.0 / fps } else { 0.033 };
+
+        if elapsed >= frame_duration {
             match decoder.decode_next_frame() {
-                Ok((frame_data, pts)) => {
-                    // Update Time
-                    self.playback_state.current_time = pts;
+                Ok((frame_data, _pts)) => {
                     self.update_texture(&frame_data);
+                    self.playback_state.last_frame_time = Some(now);
                 }
                 Err(_) => {
-                    // End of stream or error, loop back to start?
-                    // For now, pause.
-                    println!("Playback ended.");
-                    self.playback_state.is_playing = false;
+                    // Start of gap or end of file?
                 }
             }
         }

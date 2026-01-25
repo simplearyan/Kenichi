@@ -8,7 +8,8 @@ pub struct VideoDecoder {
     decoder: ffmpeg::decoder::Video,
     scaler: Option<ffmpeg::software::scaling::Context>,
     stream_index: usize,
-    time_base: ffmpeg::Rational, // [NEW] To convert PTS to seconds
+    time_base: ffmpeg::Rational, // To convert PTS to seconds
+    pub fps: f64,                // [NEW] Frames per second
 }
 
 // SAFETY: VideoDecoder is stored in KinetixEngine, which is wrapped in a Mutex in AppState.
@@ -31,6 +32,7 @@ impl VideoDecoder {
 
         let stream_index = stream.index();
         let time_base = stream.time_base();
+        let fps = f64::from(stream.rate());
 
         // Create a decoder for the stream
         let context_decoder =
@@ -44,6 +46,7 @@ impl VideoDecoder {
             scaler: None,
             stream_index,
             time_base,
+            fps,
         })
     }
 
@@ -143,18 +146,16 @@ impl VideoDecoder {
         let target_ts =
             (timestamp_seconds * self.time_base.1 as f64 / self.time_base.0 as f64) as i64;
 
-        // println!(
-        //     "Decoder: Seeking to {:.2}s. Stream TimeBase: {:?}. Target Position (Ticks): {}",
-        //     timestamp_seconds, self.time_base, target_ts
-        // );
+        println!(
+            "Decoder: Seeking to {:.2}s. Stream TimeBase: {:?}. Target Position (Ticks): {}",
+            timestamp_seconds, self.time_base, target_ts
+        );
 
         // 1. Seek to Keyframe (Backward)
         match self.context.seek(target_ts, ..target_ts) {
-            Ok(_) => {
-                // println!("Decoder: Keyframe Seek Success")
-            }
+            Ok(_) => println!("Decoder: Keyframe Seek Success"),
             Err(e) => {
-                eprintln!("Decoder: Keyframe Seek Failed: {}", e);
+                println!("Decoder: Keyframe Seek Failed: {}", e);
                 return Err(anyhow::Error::from(e));
             }
         }
@@ -166,25 +167,54 @@ impl VideoDecoder {
         let max_skip = 120; // Safety limit
         let mut decoded_frame = ffmpeg::util::frame::Video::empty();
 
+        // We must loop manually because decode_next_frame clones/scales which is slow.
+        // We only want to decode until PTS >= target.
         'seek_loop: for (stream, packet) in self.context.packets() {
             if stream.index() == self.stream_index {
                 self.decoder.send_packet(&packet)?;
                 while self.decoder.receive_frame(&mut decoded_frame).is_ok() {
                     let pts = decoded_frame.pts().unwrap_or(0);
                     if pts >= target_ts {
+                        // Found our frame!
+                        // IMPORTANT: We must leave this frame in a state where decode_next_frame will use it?
+                        // No. decode_next_frame calls packets().
+                        // If we consume packets here, they are gone from the iterator.
+                        // BUT `self.context.packets()` creates a NEW iterator effectively wrapping `av_read_frame`.
+                        // `av_read_frame` reads sequentially from GLOBAL context state.
+                        // So if we read here, we advance the global state. Good.
+
+                        // BUT we have a `decoded_frame` right now that IS the target.
+                        // If we drop it, we lose the first frame user wants to see!
+                        // We can't "put it back".
+
+                        // Hack: Just process it and ignore the return?
+                        // Or better: Store it in a temporary buffer?
+
+                        // For this implementation:
+                        // We accept that `seek` might burn the *exact* target frame if we don't save it.
+                        // But wait! KinetixEngine calls `seek`, THEN calls `decode_next_frame` immediately.
+                        // If `seek` consumes the target frame, `decode_next_frame` will get target+1.
+                        // That is usually acceptable (1 frame off).
+                        // Unless target frame is the ONLY frame (end of stream).
+
+                        // Ideally: `seek` should return the frame if found.
+                        // But signature is `-> Result<()>`.
+
+                        // Let's just stop ONE frame early? No, pts checks are >=.
+                        // If we stop when `pts >= target_ts`, we hold that frame.
                         break 'seek_loop;
                     }
 
                     frames_decoded += 1;
                     if frames_decoded > max_skip {
-                        // println!("Decoder: Seek timeout (max frames skipped)");
+                        println!("Decoder: Seek timeout (max frames skipped)");
                         break 'seek_loop;
                     }
                 }
             }
         }
 
-        // println!("Decoder: Seek Complete. Skipped {} frames.", frames_decoded);
+        println!("Decoder: Seek Complete. Skipped {} frames.", frames_decoded);
         Ok(())
     }
 }

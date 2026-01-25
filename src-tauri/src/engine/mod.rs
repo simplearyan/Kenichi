@@ -5,6 +5,7 @@ pub mod export_utils;
 pub mod model;
 pub mod proxy_manager;
 pub mod renderer;
+pub mod timeline;
 
 pub struct KinetixEngine {
     pub instance: Instance,
@@ -21,6 +22,7 @@ pub struct KinetixEngine {
     // State
     pub current_file: Option<String>,
     pub playback_state: PlaybackState, // [NEW] Track playback
+    pub composition: Vec<timeline::ClipData>, // [NEW] Timeline Composition
 
     // Config
     pub config: Option<wgpu::SurfaceConfiguration>, // Changed to Option for safety
@@ -35,6 +37,10 @@ pub struct PlaybackState {
     pub is_playing: bool,
     pub current_time: f64, // Seconds
     pub duration: f64,     // Seconds (Total video length)
+
+    // Internal Sync
+    #[serde(skip)]
+    pub last_frame_time: Option<std::time::Instant>, // When was the last frame shown? (Wall Clock)
 }
 
 impl Default for PlaybackState {
@@ -43,6 +49,7 @@ impl Default for PlaybackState {
             is_playing: false,
             current_time: 0.0,
             duration: 0.0,
+            last_frame_time: None,
         }
     }
 }
@@ -64,6 +71,7 @@ impl KinetixEngine {
             decoder: None,
             current_file: None,
             playback_state: PlaybackState::default(),
+            composition: Vec::new(),
             config: None,
             width: 1920,
             height: 1080,
