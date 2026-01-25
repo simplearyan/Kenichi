@@ -1,0 +1,94 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+            target: "" 
+          - platform: windows-latest
+            args: ""
+            target: ""
+
+    runs-runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- UBUNTU: Dev Headers + Sidecar ---
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev libavdevice-dev
+          pnpm setup # Use your new bundler script for the sidecar
+
+      # --- MACOS: Brew Headers + Sidecar ---
+      - name: Install dependencies (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install ffmpeg
+          pnpm setup # Use your bundler script
+
+      # --- WINDOWS: Shared SDK + Sidecar ---
+      - name: Install dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          # 1. Download the SHARED SDK for compiling ffmpeg-next
+          # We use the direct link to the full shared build for matching your local setup
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z" -OutFile "ffmpeg_sdk.7z"
+          # Extract using 7z (available on github runners)
+          7z x ffmpeg_sdk.7z -o"C:\ffmpeg_sdk"
+          $sdkPath = Get-ChildItem -Path "C:\ffmpeg_sdk" -Directory | Select-Object -First 1
+          
+          # 2. Set Environment Variables for the compiler
+          # Note: $GITHUB_ENV makes these available to all following steps
+          echo "FFMPEG_DIR=$($sdkPath.FullName)" >> $env:GITHUB_ENV
+          echo "$($sdkPath.FullName)\bin" >> $env:GITHUB_PATH
+          
+          # 3. Use your bundler script for the sidecar binary
+          pnpm setup
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__ 
+          releaseName: 'Kenichi v__VERSION__'
+          releaseDraft: true
+          prerelease: true
+          args: ${{ matrix.args }}

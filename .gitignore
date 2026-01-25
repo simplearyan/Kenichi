@@ -22,7 +22,14 @@ vite.config.ts.timestamp-*
 .vscode
 dev-docs
 guide
+scripts
 
-# Unnecessary files
+# Unnecessary binaries
 src-tauri/bin/*
 !src-tauri/bin/.gitkeep
+
+src-tauri/ffmpeg-dev/*
+
+# Unnecessary files
+bundle_for_ai.py
+*.txt

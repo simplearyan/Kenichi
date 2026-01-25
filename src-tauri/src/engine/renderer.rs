@@ -64,20 +64,43 @@ impl KinetixEngine {
         self.queue = Some(queue);
         self.config = Some(config);
 
-        // 5. Create Shader Module
+        // 5. Create Texture Bind Group Layout
+        let texture_bind_group_layout = self.device.as_ref().unwrap().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Texture Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+        
+        // 6. Create Shader Module
         let shader = self.device.as_ref().unwrap().create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Video Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../../../src/lib/shaders/video.wgsl").into()),
         });
 
-        // 6. Create Pipeline Layout
+        // 7. Create Pipeline Layout
         let pipeline_layout = self.device.as_ref().unwrap().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Video Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&texture_bind_group_layout],
             ..Default::default()
         });
 
-        // 7. Create Render Pipeline
+        // 8. Create Render Pipeline
         let pipeline = self.device.as_ref().unwrap().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Video Render Pipeline"),
             layout: Some(&pipeline_layout),
@@ -117,6 +140,7 @@ impl KinetixEngine {
         });
 
         self.render_pipeline = Some(pipeline);
+        self.texture_bind_group_layout = Some(texture_bind_group_layout);
 
         // Initial Render
         self.render();
@@ -154,9 +178,9 @@ impl KinetixEngine {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
+                            r: 0.1, // Dark Gray Background
+                            g: 0.1,
+                            b: 0.1,
                             a: 1.0, 
                         }),
                         store: wgpu::StoreOp::Store,
@@ -170,7 +194,12 @@ impl KinetixEngine {
             });
 
             render_pass.set_pipeline(pipeline);
-            render_pass.draw(0..3, 0..1);
+            
+            // Bind Texture if available
+            if let Some(bind_group) = &self.texture_bind_group {
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.draw(0..6, 0..1); // Draw 6 vertices (2 triangles) for Quad
+            }
         }
         
         queue.submit(std::iter::once(encoder.finish()));

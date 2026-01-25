@@ -15,8 +15,11 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
     return out;
 }
 
+// Bindings (Must match Rust Layout)
+@group(0) @binding(0) var t_diffuse: texture_2d<f32>;
+@group(0) @binding(1) var s_diffuse: sampler;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Placeholder: UV Gradient to prove it works
-    return vec4<f32>(in.uv.x, in.uv.y, 0.5, 1.0);
+    return textureSample(t_diffuse, s_diffuse, in.uv);
 }

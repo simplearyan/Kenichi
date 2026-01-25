@@ -1,5 +1,6 @@
 use wgpu::{Adapter, Device, Instance, Queue, Surface};
 
+pub mod decoding;
 pub mod export_utils;
 pub mod model;
 pub mod proxy_manager;
@@ -12,6 +13,9 @@ pub struct KinetixEngine {
     pub device: Option<Device>,
     pub queue: Option<Queue>,
     pub render_pipeline: Option<wgpu::RenderPipeline>,
+    pub texture_bind_group_layout: Option<wgpu::BindGroupLayout>, // [NEW] Layout for creating texture bind groups
+    pub texture_bind_group: Option<wgpu::BindGroup>, // [NEW] Holds the active video frame texture
+    pub decoder: Option<crate::engine::decoding::VideoDecoder>, // [NEW] Video Decoder
 
     // State
     pub current_file: Option<String>,
@@ -33,6 +37,9 @@ impl KinetixEngine {
             device: None,
             queue: None,
             render_pipeline: None,
+            texture_bind_group_layout: None,
+            texture_bind_group: None,
+            decoder: None,
             current_file: None,
             config: None,
             width: 1920,
