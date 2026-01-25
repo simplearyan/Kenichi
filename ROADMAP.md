@@ -462,6 +462,36 @@ We build **complete features end-to-end**, not layers:
 
 ---
 
+## 📚 Documentation Roadmap
+
+### ✅ Completed
+- [x] README.md - Project overview
+- [x] ROADMAP.md - Development phases
+- [x] CONTRIBUTING.md - Contribution guidelines
+- [x] LICENSE - GPL-3.0
+- [x] DEVELOPMENT.md - Setup and onboarding
+- [x] ARCHITECTURE.md - Technical design
+- [x] CHANGELOG.md - Version history
+
+### 🔜 Phase 5-6 (Before Public Release)
+- [ ] **SECURITY.md** - Security policy and vulnerability reporting
+- [ ] **CODE_OF_CONDUCT.md** - Community standards (use Contributor Covenant)
+- [ ] **TESTING.md** - Testing strategy and guidelines
+- [ ] **API.md** - Tauri commands and Svelte stores reference
+
+### 📋 Phase 7+ (Polish)
+- [ ] **FAQ.md** - Common questions (Why Tauri? Why WGPU? etc.)
+- [ ] **PERFORMANCE.md** - Benchmarks and optimization guide
+- [ ] **TROUBLESHOOTING.md** - Common issues and solutions
+- [ ] **DESIGN.md** - UI/UX design principles
+
+### 🎓 Optional (Community Growth)
+- [ ] **RESEARCH.md** - Link to `/guide` research methodology
+- [ ] **BENCHMARKS.md** - Performance test results
+- [ ] **TECHNICAL_DEBT.md** - Public technical debt tracker
+
+---
+
 ## 🤝 Contributing
 
 This roadmap is a living document. If you're interested in contributing:
